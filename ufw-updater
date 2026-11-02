@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 
 <?php
+$version = 'v1.0.0';
+
 if(!file_exists('.phpenv')) {
 	if(file_exists('.phpenv.example')) {
 		copy('.phpenv.example', '.phpenv');
@@ -117,6 +119,7 @@ function msg(?string $message = null, bool $eol = true, bool $date = true): void
 }	
 
 msg('UFW Updater');
+msg('Version '.$version);
 msg();
 msg('Checking existing allow listed IPs...');
 
