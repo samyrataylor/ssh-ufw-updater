@@ -1,45 +1,157 @@
+#!/usr/bin/env php
+
+<?php
+if(!file_exists('.phpenv')) {
+	if(file_exists('.phpenv.example')) {
+		copy('.phpenv.example', '.phpenv');
+	} else {
+		$config = [
+			'<?php',
+			'return [',
+    			'    \'allowed_ips\' => [],',
+			'    \'domain\' => null,',
+			'];',
+		];
+		file_put_contents('.phpenv', implode(PHP_EOL, $config));
+	}
+}
+
+$config = include(".phpenv");
+
+function allow(string $ip, bool $log = true): bool {
+    $cmd = 'sudo -E ufw allow from {ip} to any port {port} proto {protocol}';
+
+    $command = strtr($cmd, [
+        '{ip}' => $ip,
+        '{port}' => '22',
+        '{protocol}' => 'tcp',
+    ]);
+
+    if(!check($ip)) {
+	exec($command, $output);
+    	if(in_array('Rule added', $output) || in_array('Rule added (v6)', $output)) {
+        	if($log) {
+                        msg('[SUCCESS]', true, false);
+                }
+                return true;
+        }
+
+        if($log) {
+                msg('[FAILED]', true, false);
+        }
+
+        msg('ERROR');
+        foreach($output as $line) {
+                msg($line);
+        }
+        msg();
+        return false;
+    }
+
+    if($log) {
+	    msg('[SUCCESS]', true, false);
+    }
+
+    return true;
+}
+
+function check(string $ip): bool {
+	return array_key_exists($ip, rules());
+}
+
+function rules(): array {
+    $cmd = 'sudo -E ufw status numbered | grep -E "{rule_pattern}" | tr -s " " | sed -e "{trim_pattern}" | grep -E "{search_pattern}"';
+    
+    $command = strtr($cmd, [
+        '{rule_pattern}' => '^\[',
+        '{trim_pattern}' => 's/[ \t]$//g',
+        '{search_pattern}' => '22/tcp ALLOW IN',
+    ]);
+
+    exec($command, $output);
+
+    $rules = [];
+
+    foreach($output as $rule) {
+    	preg_match('/^\[ *([0-9]+)\]/', $rule, $matches);
+	$rules[str_replace($matches[0] . ' 22/tcp ALLOW IN ', '', $rule)] = (int)$matches[1];	
+    }
+
+    return $rules;
+}
+
+function removeIp(string $ip, bool $log = true): bool {
+	$rules = rules();
+	return remove($rules[$ip], $log);
+}
+
+function remove(int $rule, bool $log = true): bool {
+	$cmd = 'sudo -E ufw --force delete {rule}';
+	$command = strtr($cmd, [
+		'{rule}' => $rule
+	]);
+	
+	exec($command, $output); 
+	
+	if(in_array('Rule deleted', $output) || in_array('Rule deleted (v6)', $output)) {
+		if($log) {
+			msg('[SUCCESS]', true, false);
+		}
+		return true;
+	}
+
+	if($log) {
+		msg('[FAILED]', true, false);
+	}
+
+	msg('ERROR');
+	foreach($output as $line) {
+		msg($line);
+	}
+	msg();
+	return false;
 }
 
 function msg(?string $message = null, bool $eol = true, bool $date = true): void {
-        echo ($date ? '['.date('Y-m-d H:i:s').'] ' : '').$message.($eol ? PHP_EOL : '');
-}
+	echo ($date ? '['.date('Y-m-d H:i:s').'] ' : '').$message.($eol ? PHP_EOL : '');
+}	
 
 msg('UFW Updater');
 msg();
 msg('Checking existing allow listed IPs...');
 
 foreach(rules() as $ip => $num) {
-        msg('Currently allowed IP '.$ip);
-        if(!in_array($ip, $config['allowed_ips'])) {
-                msg('Removing not explictly allowed IP '.$ip.'  ', false);
-                removeIp($ip);
-        } else {
-                msg($ip.' is allow listed in .phpenv  [SKIPPING]');
-        }
+	msg('Currently allowed IP '.$ip);
+	if(!in_array($ip, $config['allowed_ips'])) {
+		msg('Removing not explictly allowed IP '.$ip.'  ', false);
+		removeIp($ip);
+	} else {
+		msg($ip.' is allow listed in .phpenv  [SKIPPING]');
+	}
 }
 
 msg();
 msg('Adding all allow listed IPs');
 foreach($config['allowed_ips'] as $ip) {
-        msg('Adding IP '.$ip.'  ', false);
-        allow($ip);
+	msg('Adding IP '.$ip.'  ', false);
+	allow($ip);
 }
 
 msg();
 
 if($config['domain']) {
-        msg('Getting IP from '.$config['domain']);
+	msg('Getting IP from '.$config['domain']);
 
-        exec(sprintf('dig %s A +short', $config['domain']), $output);
+	exec(sprintf('dig %s A +short', $config['domain']), $output);
 
-        $ip = $output[0];
+	$ip = $output[0];
 
-        msg($config['domain'].' => '.$ip);
-        msg();
+	msg($config['domain'].' => '.$ip);
+	msg();
 
-        msg('Adding IP '.$ip.'  ', false);
-        allow($ip);
-        msg();
+	msg('Adding IP '.$ip.'  ', false);
+	allow($ip);
+	msg();
 }
 
 msg('Completed');
