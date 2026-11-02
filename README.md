@@ -3,6 +3,12 @@
 Clone the repository
 
 ```bash
+$ git clone https://github.com/samyrataylor/ssh-ufw-updater
+```
+
+Allow execution
+
+```bash
 $ chmod +x ufw-updater
 ```
 
