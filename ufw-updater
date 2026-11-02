@@ -8,7 +8,7 @@ if(!file_exists('.phpenv')) {
 		$config = [
 			'<?php',
 			'return [',
-    			'    \'allowed_ips\' => [],',
+    		'    \'allowed_ips\' => [],',
 			'    \'domain\' => null,',
 			'];',
 		];
@@ -28,21 +28,21 @@ function allow(string $ip, bool $log = true): bool {
     ]);
 
     if(!check($ip)) {
-	exec($command, $output);
+		exec($command, $output);
     	if(in_array('Rule added', $output) || in_array('Rule added (v6)', $output)) {
         	if($log) {
-                        msg('[SUCCESS]', true, false);
-                }
-                return true;
+            	msg('[SUCCESS]', true, false);
+            }
+            return true;
         }
 
         if($log) {
-                msg('[FAILED]', true, false);
+            msg('[FAILED]', true, false);
         }
 
         msg('ERROR');
         foreach($output as $line) {
-                msg($line);
+            msg($line);
         }
         msg();
         return false;
@@ -74,7 +74,7 @@ function rules(): array {
 
     foreach($output as $rule) {
     	preg_match('/^\[ *([0-9]+)\]/', $rule, $matches);
-	$rules[str_replace($matches[0] . ' 22/tcp ALLOW IN ', '', $rule)] = (int)$matches[1];	
+		$rules[str_replace($matches[0] . ' 22/tcp ALLOW IN ', '', $rule)] = (int)$matches[1];	
     }
 
     return $rules;
