@@ -1,0 +1,45 @@
+}
+
+function msg(?string $message = null, bool $eol = true, bool $date = true): void {
+        echo ($date ? '['.date('Y-m-d H:i:s').'] ' : '').$message.($eol ? PHP_EOL : '');
+}
+
+msg('UFW Updater');
+msg();
+msg('Checking existing allow listed IPs...');
+
+foreach(rules() as $ip => $num) {
+        msg('Currently allowed IP '.$ip);
+        if(!in_array($ip, $config['allowed_ips'])) {
+                msg('Removing not explictly allowed IP '.$ip.'  ', false);
+                removeIp($ip);
+        } else {
+                msg($ip.' is allow listed in .phpenv  [SKIPPING]');
+        }
+}
+
+msg();
+msg('Adding all allow listed IPs');
+foreach($config['allowed_ips'] as $ip) {
+        msg('Adding IP '.$ip.'  ', false);
+        allow($ip);
+}
+
+msg();
+
+if($config['domain']) {
+        msg('Getting IP from '.$config['domain']);
+
+        exec(sprintf('dig %s A +short', $config['domain']), $output);
+
+        $ip = $output[0];
+
+        msg($config['domain'].' => '.$ip);
+        msg();
+
+        msg('Adding IP '.$ip.'  ', false);
+        allow($ip);
+        msg();
+}
+
+msg('Completed');
