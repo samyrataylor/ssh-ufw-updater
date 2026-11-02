@@ -16,7 +16,7 @@ if(!file_exists('.phpenv')) {
 	}
 }
 
-$config = include(".phpenv");
+$config = include('.phpenv');
 
 function allow(string $ip, bool $log = true): bool {
     $cmd = 'sudo -E ufw allow from {ip} to any port {port} proto {protocol}';
