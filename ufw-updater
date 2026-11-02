@@ -1,34 +1,94 @@
 #!/usr/bin/env php
 
 <?php
-$version = 'v1.0.2';
+$version = 'v1.1.0';
 
-$options = getopt('v', ['version']);
+$options = getopt('hsva:r:d:', ['help', 'reset', 'version', 'allow:', 'remove:', 'domain:']);
 
-if(array_key_exists('v', $options) || array_key_exists('version', $options)) {
-    version(false);
-    exit;
+$args = [
+	'help' => false,
+	'reset' => false,
+	'version' => false,
+	'allow' => [],
+	'remove' => [],
+	'domain' => null,
+];
+
+foreach($options as $option => $value) {
+	switch($option) {
+		case 'h':
+		case 'help':
+			$args['help'] = true;
+			break;
+		case 's':
+		case 'reset':
+			$args['reset'] = true;
+			break;
+		case 'v':
+		case 'version': 
+			$args['version'] = true;
+			break;
+		case 'a':
+		case 'allow':
+			if(gettype($value) === 'array') {
+				$args['allow'] = array_merge($args['allow'], $value);
+			} else {
+				$args['allow'][] = $value;
+			}
+			break;
+		case 'r':
+		case 'remove':
+			if(gettype($value) === 'array') {
+				$args['remove'] = array_merge($args['remove'], $value);
+			} else {
+				$args['remove'][] = $value;
+			}
+			break;
+		case 'd':
+		case 'domain': 
+			$args['domain'] = $value;
+			break;
+		default:
+			break;
+	}
 }
 
-if(!file_exists('.phpenv')) {
-    if(file_exists('.phpenv.example')) {
-        copy('.phpenv.example', '.phpenv');
+if($args['version']) {
+	version(false);
+	exit;
+}
+
+if($args['help']) {
+	msg('Help coming soon...', true, false);
+	exit;
+}
+
+version();
+msg();
+
+if($args['reset']) {
+	msg('Resetting config.json');
+	if(file_exists('config.json')) {
+		unlink('config.json');
+	}
+}
+
+if(!file_exists('config.json')) {
+    if(file_exists('config.json.example')) {
+        copy('config.json.example', 'config.json');
     } else {
         $config = [
-            '<?php',
-            'return [',
-            '    \'allowed_ips\' => [],',
-            '    \'domain\' => null,',
-            '];',
-        ];
-        file_put_contents('.phpenv', implode(PHP_EOL, $config));
+			'allowed_ips' => [],
+			'domain' => null,
+		];
+        file_put_contents('config.json', json_encode($config, JSON_PRETTY_PRINT));
     }
 }
 
-$config = include('.phpenv');
+$config = json_decode(file_get_contents('config.json'), true);
 
 function allow(string $ip, bool $log = true): bool {
-    $cmd = 'sudo -E ufw allow from {ip} to any port {port} proto {protocol}';
+    $cmd = 'sudo ufw allow from {ip} to any port {port} proto {protocol}';
 
     $command = strtr($cmd, [
         '{ip}' => $ip,
@@ -68,7 +128,7 @@ function check(string $ip): bool {
 }
 
 function rules(): array {
-    $cmd = 'sudo -E ufw status numbered | grep -E "{rule_pattern}" | tr -s " " | sed -e "{trim_pattern}" | grep -E "{search_pattern}"';
+    $cmd = 'sudo ufw status numbered | grep -E "{rule_pattern}" | tr -s " " | sed -e "{trim_pattern}" | grep -E "{search_pattern}"';
     
     $command = strtr($cmd, [
         '{rule_pattern}' => '^\[',
@@ -94,7 +154,7 @@ function removeIp(string $ip, bool $log = true): bool {
 }
 
 function remove(int $rule, bool $log = true): bool {
-    $cmd = 'sudo -E ufw --force delete {rule}';
+    $cmd = 'sudo ufw --force delete {rule}';
     $command = strtr($cmd, [
         '{rule}' => $rule
     ]);
@@ -131,8 +191,38 @@ function version(bool $date = true): void {
     msg('Version '.$version, true, $date);
 }
 
-version();
-msg();
+if(count($args['allow'])) {
+	foreach($args['allow'] as $ip) {
+		if(preg_match('/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/', $ip)) {
+			msg('Adding '.$ip.' to allow list');
+			$config['allowed_ips'][] = $ip;
+		} else {
+			msg($ip.' is not a vaild IP address, skipping');
+		}
+	}
+	file_put_contents('config.json', json_encode($config, JSON_PRETTY_PRINT));
+}
+
+if(count($args['remove'])) {
+	foreach($args['remove'] as $ip) {
+		if(preg_match('/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/', $ip)) {
+			msg('Removing '.$ip.' from allow list');
+			$config['allowed_ips'] = array_values(array_filter($config['allowed_ips'], fn(string $item) => $item !== $ip));
+		} else {
+			msg($ip.' is not a valid IP address, skipping');
+		}
+	}
+	file_put_contents('config.json', json_encode($config, JSON_PRETTY_PRINT));
+}
+
+if(!empty($args['domain'])) {
+	msg('Updating domain to '.$args['domain']);
+	$config['domain'] = $args['domain'];
+	file_put_contents('config.json', json_encode($config, JSON_PRETTY_PRINT));
+}
+
+$config = json_decode(file_get_contents('config.json'), true);
+
 msg('Checking existing allow listed IPs...');
 
 foreach(rules() as $ip => $num) {
@@ -141,7 +231,7 @@ foreach(rules() as $ip => $num) {
         msg('Removing not explictly allowed IP '.$ip.'  ', false);
         removeIp($ip);
     } else {
-        msg($ip.' is allow listed in .phpenv  [SKIPPING]');
+        msg($ip.' is allow listed in config.json  [SKIPPING]');
     }
 }
 
