@@ -1,7 +1,14 @@
 #!/usr/bin/env php
 
 <?php
-$version = 'v1.0.0';
+$version = 'v1.0.1';
+
+$options = getopt('v', ['version']);
+
+if($options['v'] || $options['version']) {
+	version();
+	exit;
+}
 
 if(!file_exists('.phpenv')) {
 	if(file_exists('.phpenv.example')) {
@@ -118,8 +125,12 @@ function msg(?string $message = null, bool $eol = true, bool $date = true): void
 	echo ($date ? '['.date('Y-m-d H:i:s').'] ' : '').$message.($eol ? PHP_EOL : '');
 }	
 
-msg('UFW Updater');
-msg('Version '.$version);
+function version(): void {
+	msg('UFW Updater');
+	msg('Version '.$version);
+}
+
+version();
 msg();
 msg('Checking existing allow listed IPs...');
 
