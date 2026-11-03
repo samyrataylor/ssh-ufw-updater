@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 
 <?php
-$version = 'v1.1.0';
+$version = 'v1.1.1';
 
 $options = getopt('hsva:r:d:', ['help', 'reset', 'version', 'allow:', 'remove:', 'domain:']);
 
@@ -74,8 +74,8 @@ if($args['reset']) {
 }
 
 if(!file_exists('config.json')) {
-    if(file_exists('config.json.example')) {
-        copy('config.json.example', 'config.json');
+    if(file_exists('config-example.json')) {
+        copy('config-example.json', 'config.json');
     } else {
         $config = [
 			'allowed_ips' => [],
